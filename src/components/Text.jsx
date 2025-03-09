@@ -4,15 +4,15 @@ import Draggable from 'react-draggable';
 const Text = () => {
   const nodeRef = useRef(null);
   const [editable, setEditable] = useState(false);
-  const [value, setValue] = useState('Double Click to Edit');
+  const [value, setValue] = useState('Double Tap to Edit'); // Updated default text
   const [textStyle, setTextStyle] = useState({
     fontSize: '16px',
     color: '#000000',
     fontFamily: 'Arial',
   });
-  const [position, setPosition] = useState({ x: 0, y: 0 }); // Track position
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [lastTap, setLastTap] = useState(0); // For double-tap detection
 
-  // Memoize the style change handler to prevent re-renders
   const handleStyleChange = useCallback((property, newValue) => {
     setTextStyle((prevStyle) => ({
       ...prevStyle,
@@ -20,10 +20,33 @@ const Text = () => {
     }));
   }, []);
 
-  // Handle drag stop to update position
   const onStop = useCallback((e, data) => {
     setPosition({ x: data.x, y: data.y });
   }, []);
+
+  // Handle tap/click events
+  const handleTap = useCallback((e) => {
+    e.preventDefault(); // Prevent default mobile behaviors (e.g., zooming)
+    const currentTime = new Date().getTime();
+    const tapGap = currentTime - lastTap;
+    const doubleTapThreshold = 300; // 300ms window for double-tap
+
+    if (tapGap < doubleTapThreshold && tapGap > 0) {
+      // Double-tap detected
+      if (editable) {
+        setValue('Double Tap to Edit'); // Reset text in edit mode
+      } else {
+        setEditable(true); // Enter edit mode
+      }
+    } else if (tapGap >= doubleTapThreshold) {
+      // Single-tap detected
+      if (!editable) {
+        setEditable(true); // Enter edit mode on single tap
+      }
+    }
+
+    setLastTap(currentTime);
+  }, [editable, lastTap]);
 
   return (
     <Draggable
@@ -31,13 +54,14 @@ const Text = () => {
       position={position}
       onStop={onStop}
       defaultPosition={{ x: 0, y: 0 }}
+      cancel={editable ? 'input, select' : undefined} // Prevent dragging while editing
     >
       <div
         style={{
           display: 'inline-block',
-          willChange: 'transform', 
-          transform: 'translate3d(0, 0, 0)', 
-          userSelect: 'none', 
+          willChange: 'transform',
+          transform: 'translate3d(0, 0, 0)',
+          userSelect: 'none',
         }}
       >
         {editable ? (
@@ -53,7 +77,7 @@ const Text = () => {
                 fontFamily: textStyle.fontFamily,
                 border: '1px solid #ccc',
                 padding: '4px',
-                outline: 'none', 
+                outline: 'none',
               }}
             />
             <div style={{ marginTop: '8px' }}>
@@ -96,15 +120,16 @@ const Text = () => {
         ) : (
           <p
             ref={nodeRef}
-            onClick={() => setEditable(true)}
-            onDoubleClick={() => setValue('Double Click to Edit')}
+            onTouchStart={handleTap} // For mobile touch
+            onClick={handleTap} // For desktop click
             style={{
               fontSize: textStyle.fontSize,
               color: textStyle.color,
               fontFamily: textStyle.fontFamily,
               margin: 0,
               padding: '4px',
-              cursor: 'move', 
+              cursor: 'move',
+              touchAction: 'none', // Prevent default touch behaviors
             }}
           >
             {value}
